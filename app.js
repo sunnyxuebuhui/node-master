@@ -50,15 +50,16 @@ const serverHandle = (req,  res) => {
     req.body = postData
 
     // 处理blog路由
-    const blogData = handleBlogRouter(req, res)
-    if (blogData) {
-      res.end(JSON.stringify(blogData))
+    const blogResult = handleBlogRouter(req, res)
+    if (blogResult) {
+      blogResult.then(blogData => {
+        res.end(JSON.stringify(blogData))
+      })
       return
     }
 
     // 处理login路由
     const userData = handleUserRouter(req, res)
-    console.log(123, userData)
     if (userData) {
       res.end(JSON.stringify(userData))
       return
