@@ -59,11 +59,14 @@ const serverHandle = (req,  res) => {
     }
 
     // 处理login路由
-    const userData = handleUserRouter(req, res)
-    if (userData) {
-      res.end(JSON.stringify(userData))
+    const userResult = handleUserRouter(req, res)
+    if (userResult) {
+      userResult.then(userData => {
+        res.end(JSON.stringify(userData))
+      })
       return
     }
+
 
     // 路由不匹配 404
     res.writeHead(404, {"content-type": "text/plain"})

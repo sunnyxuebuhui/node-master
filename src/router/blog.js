@@ -6,37 +6,49 @@ const handleBlogRouter= (req, res) => {
   const { method, url } = req
   const path = req.path
   const { author, keyword, id } = req.query
-  let resData
 
   // 获取博客列表
   if (method === 'GET') {
     switch (path) {
       case '/api/blog/list':
-        resData = new SuccessModel(getList(author, keyword))
-        break;
+        const rsPromise = getList(author, keyword)
+        return rsPromise.then(data => {
+          return new SuccessModel(data)
+        })
       case '/api/blog/detail':
-        resData = new SuccessModel(getDetail(id))
-        break;
+        const rsDetailPromise = getDetail(id)
+        return rsDetailPromise.then(data => {
+          return new SuccessModel(data)
+        })
       default:
     }
   } else {
     switch (path) {
       case '/api/blog/new':
-        resData = new SuccessModel(newBlog(req.body))
-        console.log('body', req.body)
-        break;
+        // mock登录人
+        req.body.author = '梨'
+        const newRs = newBlog(req.body)
+        return newRs.then(data => {
+          return new SuccessModel(data)
+        })
       case '/api/blog/update':
-        const updateData = updateBlog(id, req.body)
-        resData = updateData ? new SuccessModel(updateData) : new ErrorModel('error')
-        break;
+        const updateRs = updateBlog(id, req.body)
+        return updateRs.then(data => {
+          return data ? new SuccessModel(data) : new ErrorModel('更新博客失败')
+        })
       case '/api/blog/delete':
-        const delData = deleteBlog(id)
-        resData = delData ? new SuccessModel(delData) : new ErrorModel('error')
-        break;
+        const author = '梨'
+        const delRs = deleteBlog(id, author)
+        return delRs.then(data => {
+          if (data) {
+            return new SuccessModel()
+          } else {
+            return new ErrorModel('删除博客失败')
+          }
+        })
       default:
     }
   }
-  return resData
 }
 
 module.exports = handleBlogRouter
