@@ -1,4 +1,6 @@
 const querystring = require('querystring')
+const { get, set } = require('./src/db/redis')
+const { access } = require('./src/utils/log')
 const handleBlogRouter = require('./src/router/blog')
 const handleUserRouter = require('./src/router/user')
 
@@ -37,6 +39,9 @@ const getPostData = req => {
 }
 
 const serverHandle = (req,  res) => {
+  // 记录 access log日志
+  access(`${req.method} -- ${req.url} -- ${req.headers['user-agent']} -- ${Date.now()}`)
+
   // 设置返回数据格式 JSON
   res.setHeader('Content-type', 'application/json')
 
@@ -47,19 +52,59 @@ const serverHandle = (req,  res) => {
   // query
   req.query = querystring.decode(url && url.split('?')[1])
 
-  /**
-   * promise
-   * post
-   * data
-   */
-  getPostData(req).then(postData =>{
+  // 解析 cookie
+  req.cookie = {}
+  const cookieStr = req.headers.cookie || ''  // k1=v1;k2=v2;k3=v3
+  cookieStr.split(';').forEach(item => {
+    if (!item) {
+      return
+    }
+    const arr = item.split('=')
+    const key = arr[0].trim()
+    const val = arr[1].trim()
+    req.cookie[key] = val
+  })
+
+  // 解析 session (使用redis)
+  let needSetCookie = false
+  let userId = req.cookie.userid
+
+  // 未登录
+  if (!userId) {
+    needSetCookie = true
+    userId = `${Date.now()}_${Math.random()}`
+    // 初始化 redis 中的 session 值
+    set(userId, {})
+  }
+  // 获取session
+  req.sessionId = userId
+  // 通过登录的cookie值中的id去获取对应的用户信息
+  get(req.sessionId).then(sessionData => {
+    if (sessionData === null) {
+      // 初始化设置 redis 中的 session 值
+      set(req.sessionId, {})
+      req.session = {}
+    } else {
+      // 设置session
+      req.session = sessionData
+    }
+
+    // 处理 post data
+    return getPostData(req)
+  }).then(postData => {
     req.body = postData
 
     // 处理blog路由
     const blogResult = handleBlogRouter(req, res)
     if (blogResult) {
       blogResult.then(blogData => {
-        res.end(JSON.stringify(blogData))
+        if (needSetCookie) {
+          res.setHeader('Set-Cookie', `userid=${userId}; path=/; httpOnly; expires=${getCookieExpires()}`)
+        }
+
+        res.end(
+          JSON.stringify(blogData)
+        )
       })
       return
     }
@@ -68,89 +113,24 @@ const serverHandle = (req,  res) => {
     const userResult = handleUserRouter(req, res)
     if (userResult) {
       userResult.then(userData => {
-        res.end(JSON.stringify(userData))
+        if (needSetCookie) {
+          res.setHeader('Set-Cookie', `userid=${userId}; path=/; httpOnly; expires=${getCookieExpires()}`)
+        }
+
+        res.end(
+          JSON.stringify(userData)
+        )
       })
       return
     }
-
 
     // 路由不匹配 404
     res.writeHead(404, {"content-type": "text/plain"})
     res.write("404 Not Found\n")
     res.end()
   })
+
+
 }
 
 module.exports = serverHandle
-
-
-
-
-
-
-/*const server = http.createServer((req, res) => {
-  if (req.method === 'GET') {
-    console.log('method: ', req.method )
-
-    const url = req.url
-    console.log('url: ', url)
-
-    // querystring.decode() 是 querystring.parse() 的别名
-
-    req.query = querystring.decode(url.split('?')[1])
-    console.log('query: ', req.query)
-
-    // querystring.encode() 是 querystring.stringify() 的别名
-
-    res.end(JSON.stringify(req.query))
-  }
-  else
-  {
-    // req数据格式
-    console.log('req content-type: ', req.headers['content-type'])
-
-    // 接收数据
-    let postData = ''
-    req.on('data', chunk => {
-      postData += chunk.toString()
-    })
-
-    req.on('end', chunk => {
-      console.log('postData: ', postData)
-      res.end('POST is end')
-    })
-  }
-
-})*/
-
-/*const server = http.createServer((req, res) => {
-  const { method, url } = req
-  const path = url && url.split('?')[0]
-  const query = querystring.parse(url && url.split('?')[1])
-
-  // 设置返回数据格式 JSON
-  res.setHeader('Content-type', 'application/json')
-
-  // 返回的数据
-  const resData = {
-    method,
-    url,
-    path,
-    query
-  }
-
-  if (method === 'GET') {
-    res.end(JSON.stringify(resData))
-  } else {
-    let postData = ''
-    req.on('data', chunk => {
-      postData += chunk.toString()
-    })
-    req.on('end', () => {
-      resData.postData = postData
-      res.end(JSON.stringify(resData))
-    })
-  }
-
-})*/
-
