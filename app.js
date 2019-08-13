@@ -53,8 +53,9 @@ const serverHandle = (req,  res) => {
   req.query = querystring.decode(url && url.split('?')[1])
 
   // 解析 cookie
+  // 格式 k1=v1; k2=v2; k3=v3
   req.cookie = {}
-  const cookieStr = req.headers.cookie || ''  // k1=v1;k2=v2;k3=v3
+  const cookieStr = req.headers.cookie || ''  
   cookieStr.split(';').forEach(item => {
     if (!item) {
       return

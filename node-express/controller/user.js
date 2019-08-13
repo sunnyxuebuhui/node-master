@@ -13,7 +13,7 @@ const loginCheck = (username, pwd) => {
   return exec(sql).then(data => {
     return data[0] || {}
   })
-}
+} 
 
 module.exports = {
   loginCheck
